@@ -10,7 +10,7 @@ import re
 from pathlib import Path
 from collections import Counter
 
-st.set_page_config(page_title="Vergleichs-KI", page_icon="⚖️", layout="wide")
+st.set_page_config(page_title="Vergleich-Agenten", page_icon="⚖️", layout="wide")
 
 # ── PDF-Text extrahieren ──
 @st.cache_data
@@ -70,7 +70,7 @@ def compare_documents(text_a: str, text_b: str, name_a: str, name_b: str) -> dic
     }
 
 # ── Haupt-App ──
-st.title("⚖️ Vergleichs-KI")
+st.title("⚖️ Vergleich-Agenten")
 st.caption("Vergütungsvereinbarungen SGB V — automatisch vergleichen")
 
 pdf_dir = "/opt/data/Vergütungsvereinbarungen"
@@ -200,4 +200,4 @@ with tab3:
                 st.warning("Keine Treffer.")
 
 st.markdown("---")
-st.caption("⚖️ Vergleichs-KI | markb.de | SGB V Vergütungsvereinbarungen")
+st.caption("⚖️ Vergleich-Agenten | markb.de | SGB V Vergütungsvereinbarungen")
