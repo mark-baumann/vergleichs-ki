@@ -163,7 +163,7 @@ with tab2:
     if docs:
         for name, data in docs.items():
             with st.expander(f"📄 {name} ({data['pages']} Seiten, {len(data['text']):,} Zeichen)"):
-                st.text_area("Volltext", data["text"][:3000], height=250, key=f"text_{name[:15]}")
+                st.text_area("Volltext", data["text"][:3000], height=250, key=f"text_{hash(name)}")
     else:
         st.warning(f"Keine PDFs in {pdf_dir}")
 
