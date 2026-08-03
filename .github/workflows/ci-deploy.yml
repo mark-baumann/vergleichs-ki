@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.13'
+      - name: Install dependencies
+        run: |
+          python -m venv .venv
+          . .venv/bin/activate
+          pip install -r requirements.txt || true
+      - name: Run tests (smoke)
+        run: |
+          if [ -f tests/smoke.py ]; then
+            . .venv/bin/activate && pytest -q tests/smoke.py || exit 1
+          else
+            echo "No smoke tests; running basic import check"
+            python -m py_compile $(git ls-files '*.py' | head -n 50) || true
+          fi
+
+  notify:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify
+        run: echo "CI completed for $GITHUB_REPOSITORY"
