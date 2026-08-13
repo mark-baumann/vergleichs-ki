@@ -5,7 +5,7 @@
 [![PyMuPDF](https://img.shields.io/badge/PDF-PyMuPDF-orange)](https://pymupdf.readthedocs.io)
 [![Deployed](https://img.shields.io/badge/Deployed-vergleichs--ki.markb.de-brightgreen)](https://vergleichs-ki.markb.de)
 
-**Automatischer Vergleich von Vergütungsvereinbarungen nach SGB V.** Lädt PDFs, extrahiert Text, findet Unterschiede in Beträgen, Paragraphen und Begriffen — live per Streamlit.
+**Automatischer Vergleich von Vergütungsvereinbarungen nach SGB V.** Lädt PDFs, extrahiert Text, findet Unterschiede deterministisch per String-Vergleich und Levenshtein-Distanz in Textblöcken, Beträgen, Paragraphen und Begriffen — live per Streamlit. Eine KI-Zusammenfassung kann optional nachgelagert über die bereits berechneten Unterschiede laufen.
 
 ---
 
@@ -17,7 +17,10 @@
 - **📜 Paragraphen-Tracking:** Welche Paragraphen wurden hinzugefügt oder gestrichen?
 - **🔤 Begriffs-Diff:** Neue und entfernte Fachbegriffe im Vergleich
 - **🔍 Detailsuche:** Gezielte Volltextsuche mit Zeilennummern
-- **📤 PDF-Upload:** Eigene PDFs hochladen und vergleichen
+- **📤 Persistenter Mehrfach-PDF-Upload:** Zwei oder mehr eigene PDFs hochladen, dauerhaft im PDF-Ordner speichern und direkt vergleichen
+- **🧮 Deterministischer Text-Diff:** String-Vergleich von Textblöcken inklusive Levenshtein-Distanz vor jeder KI-Auswertung
+- **🤖 Optionale KI-Zusammenfassung:** KI fasst nur die deterministisch gefundenen Unterschiede zusammen, wenn `OPENAI_API_KEY` gesetzt ist
+- **💡 Suchvorschläge:** Detailsuche zeigt häufige Fachbegriffe und ähnliche Vorschläge
 
 ---
 
@@ -35,17 +38,18 @@ pip install streamlit pymupdf
 ## 🖥️ Nutzung
 
 ```bash
-streamlit run app.py
+streamlit run app/app.py
 ```
 
 Die App läuft auf **Port 8501** und ist deployed unter [vergleichs-ki.markb.de](https://vergleichs-ki.markb.de).
 
 ### Workflow
 
-1. **Dokumente laden:** PDFs aus `/opt/data/Vergütungsvereinbarungen/` oder per Upload
-2. **Vergleichen:** Dokument A und B auswählen → „Jetzt vergleichen"
-3. **Ergebnisse analysieren:** Betrags-Änderungen, neue/entfernte Paragraphen, Begriffs-Diff
-4. **Detailsuche:** Gezielt nach „Basisfallwert", „Punktwert", „§37" etc. suchen
+1. **Dokumente laden:** PDFs rekursiv aus `/opt/data/Vergütungsvereinbarungen/` laden oder mehrere PDFs per Upload dauerhaft unter `_uploads/` speichern
+2. **Vergleichen:** Dokument A und B auswählen → „Deterministisch vergleichen"
+3. **Ergebnisse analysieren:** Levenshtein-Distanz, geänderte Textblöcke, neue/entfernte Beträge und Paragraphen prüfen
+4. **Optional KI nutzen:** Nur bei gesetztem `OPENAI_API_KEY` eine Zusammenfassung der deterministischen Unterschiede erzeugen
+5. **Detailsuche:** Vorschläge nutzen und gezielt nach „Basisfallwert", „Punktwert", „§37" etc. suchen
 
 ---
 
@@ -55,7 +59,8 @@ Die App läuft auf **Port 8501** und ist deployed unter [vergleichs-ki.markb.de]
 |---|---|
 | **Frontend** | Streamlit |
 | **PDF** | PyMuPDF (fitz) |
-| **Textanalyse** | Python Regex, Collections |
+| **Textanalyse** | Python Regex, difflib, Levenshtein-Distanz |
+| **KI optional** | OpenAI API nach deterministischem Vergleich |
 | **Sprache** | Python 3.12+ |
 
 ---
@@ -64,7 +69,7 @@ Die App läuft auf **Port 8501** und ist deployed unter [vergleichs-ki.markb.de]
 
 ```
 vergleichs-ki/
-├── app.py                    # Streamlit-App (203 Zeilen)
+├── app/app.py                # Streamlit-App
 └── .venv/                    # Virtuelle Umgebung
 ```
 
