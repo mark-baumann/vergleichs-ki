@@ -6,7 +6,6 @@ Optional kann danach eine KI-Zusammenfassung über die bereits ermittelten Unter
 """
 
 import difflib
-import hashlib
 import json
 import os
 import re
@@ -18,7 +17,6 @@ import streamlit as st
 st.set_page_config(page_title="Vergleichs-KI", page_icon="⚖️", layout="wide")
 
 DEFAULT_PDF_DIR = "/opt/data/Vergütungsvereinbarungen"
-PERSISTED_UPLOAD_SUBDIR = "_uploads"
 MAX_DIFF_ITEMS = 80
 
 
@@ -92,47 +90,7 @@ def extract_pdf_texts(pdf_dir: str) -> dict:
     return docs
 
 
-def safe_pdf_filename(filename: str) -> str:
-    """Erzeugt einen sicheren Dateinamen für persistierte Uploads."""
-    stem = Path(filename).stem or "dokument"
-    safe_stem = re.sub(r"[^A-Za-z0-9ÄÖÜäöüß._-]+", "_", stem).strip("._") or "dokument"
-    return f"{safe_stem}.pdf"
-
-
-def unique_upload_path(upload_dir: Path, filename: str, content: bytes) -> Path:
-    """Verhindert Überschreiben, speichert identische Uploads aber nicht mehrfach."""
-    target = upload_dir / safe_pdf_filename(filename)
-    if not target.exists() or target.read_bytes() == content:
-        return target
-
-    digest = hashlib.sha256(content).hexdigest()[:10]
-    candidate = upload_dir / f"{target.stem}_{digest}{target.suffix}"
-    if not candidate.exists() or candidate.read_bytes() == content:
-        return candidate
-
-    for counter in range(2, 1000):
-        numbered = upload_dir / f"{target.stem}_{digest}_{counter}{target.suffix}"
-        if not numbered.exists():
-            return numbered
-    raise FileExistsError(f"Zu viele Dateien mit ähnlichem Namen: {filename}")
-
-
-def save_uploaded_pdf(uploaded_file, pdf_dir: str) -> tuple[Path, str | None]:
-    """Speichert Uploads dauerhaft im PDF-Ordner, damit sie nach Reloads erhalten bleiben."""
-    upload_dir = Path(pdf_dir) / PERSISTED_UPLOAD_SUBDIR
-    try:
-        upload_dir.mkdir(parents=True, exist_ok=True)
-        content = uploaded_file.getvalue()
-        target = unique_upload_path(upload_dir, uploaded_file.name, content)
-        if not target.exists():
-            target.write_bytes(content)
-        return target, None
-    except OSError as error:
-        return Path(), str(error)
-
-
 def extract_uploaded_pdf(uploaded_file) -> dict:
-    """Fallback: extrahiert einen Upload nur für die aktuelle Session."""
     import fitz
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
@@ -143,7 +101,7 @@ def extract_uploaded_pdf(uploaded_file) -> dict:
         text = "".join(page.get_text() for page in doc)
         pages = len(doc)
         doc.close()
-        return {"text": normalize_text(text), "pages": pages, "source": "Upload (nur aktuelle Session)"}
+        return {"text": normalize_text(text), "pages": pages, "source": "Upload"}
     finally:
         Path(tmp_path).unlink(missing_ok=True)
 
@@ -359,33 +317,11 @@ with tab2:
     st.subheader("📄 Verfügbare Dokumente")
     st.caption(f"Quelle: {pdf_dir} — rekursive PDF-Suche inklusive Unterordner")
 
-    st.info(
-        f"Uploads werden dauerhaft unter `{Path(pdf_dir) / PERSISTED_UPLOAD_SUBDIR}` gespeichert "
-        "und sind nach einem Seiten-Reload weiterhin verfügbar."
-    )
     uploaded = st.file_uploader("Eine oder mehrere PDFs zum Vergleich hochladen", type="pdf", accept_multiple_files=True)
     if uploaded:
-        saved_files = []
-        session_only_files = []
         for file in uploaded:
-            saved_path, error = save_uploaded_pdf(file, pdf_dir)
-            if error:
-                st.session_state.uploaded_docs[f"Upload/{file.name}"] = extract_uploaded_pdf(file)
-                session_only_files.append(f"{file.name} ({error})")
-            else:
-                saved_files.append(saved_path.name)
-
-        if saved_files:
-            extract_pdf_texts.clear()
-            st.success(
-                f"✅ {len(saved_files)} PDF(s) dauerhaft gespeichert. "
-                "Sie bleiben nach einem Reload im Dokumentenordner verfügbar."
-            )
-        if session_only_files:
-            st.warning(
-                "Einige Uploads konnten nicht dauerhaft gespeichert werden und gelten nur für diese Session: "
-                + ", ".join(session_only_files)
-            )
+            st.session_state.uploaded_docs[f"Upload/{file.name}"] = extract_uploaded_pdf(file)
+        st.success(f"✅ {len(uploaded)} PDF(s) geladen. Sie können jetzt im Vergleich ausgewählt werden.")
         docs = {**extract_pdf_texts(pdf_dir), **st.session_state.uploaded_docs}
 
     if docs:

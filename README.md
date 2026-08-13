@@ -17,7 +17,7 @@
 - **📜 Paragraphen-Tracking:** Welche Paragraphen wurden hinzugefügt oder gestrichen?
 - **🔤 Begriffs-Diff:** Neue und entfernte Fachbegriffe im Vergleich
 - **🔍 Detailsuche:** Gezielte Volltextsuche mit Zeilennummern
-- **📤 Persistenter Mehrfach-PDF-Upload:** Zwei oder mehr eigene PDFs hochladen, dauerhaft im PDF-Ordner speichern und direkt vergleichen
+- **📤 Mehrfach-PDF-Upload:** Zwei oder mehr eigene PDFs hochladen und direkt vergleichen
 - **🧮 Deterministischer Text-Diff:** String-Vergleich von Textblöcken inklusive Levenshtein-Distanz vor jeder KI-Auswertung
 - **🤖 Optionale KI-Zusammenfassung:** KI fasst nur die deterministisch gefundenen Unterschiede zusammen, wenn `OPENAI_API_KEY` gesetzt ist
 - **💡 Suchvorschläge:** Detailsuche zeigt häufige Fachbegriffe und ähnliche Vorschläge
@@ -45,7 +45,7 @@ Die App läuft auf **Port 8501** und ist deployed unter [vergleichs-ki.markb.de]
 
 ### Workflow
 
-1. **Dokumente laden:** PDFs rekursiv aus `/opt/data/Vergütungsvereinbarungen/` laden oder mehrere PDFs per Upload dauerhaft unter `_uploads/` speichern
+1. **Dokumente laden:** PDFs rekursiv aus `/opt/data/Vergütungsvereinbarungen/` oder mehrere PDFs per Upload laden
 2. **Vergleichen:** Dokument A und B auswählen → „Deterministisch vergleichen"
 3. **Ergebnisse analysieren:** Levenshtein-Distanz, geänderte Textblöcke, neue/entfernte Beträge und Paragraphen prüfen
 4. **Optional KI nutzen:** Nur bei gesetztem `OPENAI_API_KEY` eine Zusammenfassung der deterministischen Unterschiede erzeugen
