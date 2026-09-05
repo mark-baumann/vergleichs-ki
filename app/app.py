@@ -246,9 +246,15 @@ if st.sidebar.button("🔄 PDF-Ordner neu einlesen"):
 if "uploaded_docs" not in st.session_state:
     st.session_state.uploaded_docs = {}
 
+uploaded = st.sidebar.file_uploader("Eine oder mehrere PDFs zum Vergleich hochladen", type="pdf", accept_multiple_files=True)
+if uploaded:
+    for file in uploaded:
+        st.session_state.uploaded_docs[f"Upload/{file.name}"] = extract_uploaded_pdf(file)
+    st.sidebar.success(f"✅ {len(uploaded)} PDF(s) geladen. Sie können jetzt im Vergleich ausgewählt werden.")
+
 docs = {**extract_pdf_texts(pdf_dir), **st.session_state.uploaded_docs}
 
-tab1, tab2, tab3 = st.tabs(["📊 Vergleich", "📄 Dokumente", "🔍 Detailsuche"])
+tab1, tab2 = st.tabs(["📊 Vergleich", "🔍 Detailsuche"])
 
 with tab1:
     st.subheader("📊 Zwei Vergütungsvereinbarungen vergleichen")
@@ -314,25 +320,6 @@ with tab1:
         st.warning(f"Mindestens 2 PDFs nötig. Aktueller Ordner: {pdf_dir}")
 
 with tab2:
-    st.subheader("📄 Verfügbare Dokumente")
-    st.caption(f"Quelle: {pdf_dir} — rekursive PDF-Suche inklusive Unterordner")
-
-    uploaded = st.file_uploader("Eine oder mehrere PDFs zum Vergleich hochladen", type="pdf", accept_multiple_files=True)
-    if uploaded:
-        for file in uploaded:
-            st.session_state.uploaded_docs[f"Upload/{file.name}"] = extract_uploaded_pdf(file)
-        st.success(f"✅ {len(uploaded)} PDF(s) geladen. Sie können jetzt im Vergleich ausgewählt werden.")
-        docs = {**extract_pdf_texts(pdf_dir), **st.session_state.uploaded_docs}
-
-    if docs:
-        for name, data in docs.items():
-            with st.expander(f"📄 {name} ({data['pages']} Seiten, {len(data['text']):,} Zeichen)"):
-                st.caption(data.get("source", ""))
-                st.text_area("Volltext", data["text"][:3000], height=250, key=f"text_{hash(name)}")
-    else:
-        st.warning(f"Keine PDFs in {pdf_dir}. Prüfen Sie den gemounteten Ordner oder laden Sie oben zwei PDFs hoch.")
-
-with tab3:
     st.subheader("🔍 Detailsuche mit Vorschlägen")
     if docs:
         suggestions = build_search_suggestions(docs)
