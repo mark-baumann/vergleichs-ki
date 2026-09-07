@@ -17,7 +17,7 @@
 - **📜 Paragraphen-Tracking:** Welche Paragraphen wurden hinzugefügt oder gestrichen?
 - **🔤 Begriffs-Diff:** Neue und entfernte Fachbegriffe im Vergleich
 - **🔍 Detailsuche:** Gezielte Volltextsuche mit Zeilennummern
-- **📤 Mehrfach-PDF-Upload:** Zwei oder mehr eigene PDFs hochladen und direkt vergleichen
+- **📤 Mehrfach-PDF-Upload:** Zwei oder mehr eigene PDFs hochladen; sie werden dauerhaft im konfigurierten PDF-Ordner gespeichert
 - **🧮 Deterministischer Text-Diff:** String-Vergleich von Textblöcken inklusive Levenshtein-Distanz vor jeder KI-Auswertung
 - **🤖 Optionale KI-Zusammenfassung:** KI fasst nur die deterministisch gefundenen Unterschiede zusammen, wenn `OPENAI_API_KEY` gesetzt ist
 - **💡 Suchvorschläge:** Detailsuche zeigt häufige Fachbegriffe und ähnliche Vorschläge
@@ -45,11 +45,13 @@ Die App läuft auf **Port 8501** und ist deployed unter [vergleichs-ki.markb.de]
 
 ### Workflow
 
-1. **Dokumente laden:** PDFs rekursiv aus `/opt/data/Vergütungsvereinbarungen/` oder mehrere PDFs per Upload laden
+1. **Dokumente laden:** PDFs rekursiv aus `/opt/data/Vergütungsvereinbarungen/` oder mehrere PDFs per Upload laden. Uploads werden im konfigurierten PDF-Ordner gespeichert und bleiben nach einem Neustart erhalten, wenn dieser Ordner persistent gemountet ist.
 2. **Vergleichen:** Dokument A und B auswählen → „Deterministisch vergleichen"
 3. **Ergebnisse analysieren:** Levenshtein-Distanz, geänderte Textblöcke, neue/entfernte Beträge und Paragraphen prüfen
 4. **Optional KI nutzen:** Nur bei gesetztem `OPENAI_API_KEY` eine Zusammenfassung der deterministischen Unterschiede erzeugen
 5. **Detailsuche:** Vorschläge nutzen und gezielt nach „Basisfallwert", „Punktwert", „§37" etc. suchen
+
+Mit **„PDF-Ordner neu einlesen“** wird der Dokumenten-Cache geleert und der Ordner vollständig neu durchsucht. Dabei werden auch `.PDF`-Dateien berücksichtigt.
 
 ---
 

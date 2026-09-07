@@ -65,7 +65,7 @@ def similarity_ratio(a: str, b: str) -> float:
 
 # ── PDF-Text extrahieren ─────────────────────────────────────────────────────
 @st.cache_data(show_spinner=False)
-def extract_pdf_texts(pdf_dir: str) -> dict:
+def extract_pdf_texts(pdf_dir: str, reload_token: int = 0) -> dict:
     import fitz
 
     docs = {}
@@ -74,7 +74,10 @@ def extract_pdf_texts(pdf_dir: str) -> dict:
         return docs
 
     # Rekursiv suchen, damit gemountete Unterordner ebenfalls angezeigt werden.
-    for pdf_file in sorted(pdf_path.rglob("*.pdf"), key=lambda p: str(p).lower()):
+    for pdf_file in sorted(
+        (path for path in pdf_path.rglob("*") if path.is_file() and path.suffix.lower() == ".pdf"),
+        key=lambda p: str(p).lower(),
+    ):
         try:
             doc = fitz.open(pdf_file)
             text = "".join(page.get_text() for page in doc)
@@ -88,6 +91,31 @@ def extract_pdf_texts(pdf_dir: str) -> dict:
         except Exception as e:
             docs[pdf_file.name] = {"text": f"FEHLER: {e}", "pages": 0, "source": str(pdf_file)}
     return docs
+
+
+def persist_uploaded_pdf(uploaded_file, pdf_dir: str) -> None:
+    """Speichert Uploads im konfigurierten PDF-Ordner statt nur in der Session."""
+    pdf_path = Path(pdf_dir)
+    pdf_path.mkdir(parents=True, exist_ok=True)
+    filename = Path(uploaded_file.name).name
+    if not filename or Path(filename).suffix.lower() != ".pdf":
+        raise ValueError("Nur PDF-Dateien können gespeichert werden.")
+
+    content = uploaded_file.getvalue()
+    target = pdf_path / filename
+    if target.exists() and target.read_bytes() == content:
+        return
+
+    # Atomisches Ersetzen verhindert unvollständige PDFs bei einem Abbruch.
+    temp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(dir=pdf_path, suffix=".pdf", delete=False) as tmp:
+            tmp.write(content)
+            temp_path = Path(tmp.name)
+        os.replace(temp_path, target)
+    finally:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
 
 
 def extract_uploaded_pdf(uploaded_file) -> dict:
@@ -240,19 +268,30 @@ st.title("⚖️ Vergleichs-KI")
 st.caption("Deterministischer Vergleich von Vergütungsvereinbarungen — KI optional nachgelagert")
 
 pdf_dir = st.sidebar.text_input("PDF-Ordner", value=os.getenv("PDF_DIR", DEFAULT_PDF_DIR))
+if "pdf_reload_token" not in st.session_state:
+    st.session_state.pdf_reload_token = 0
 if st.sidebar.button("🔄 PDF-Ordner neu einlesen"):
     extract_pdf_texts.clear()
-
-if "uploaded_docs" not in st.session_state:
-    st.session_state.uploaded_docs = {}
+    st.session_state.pdf_reload_token += 1
+    st.session_state.pdf_reload_notice = True
+    st.rerun()
 
 uploaded = st.sidebar.file_uploader("Eine oder mehrere PDFs zum Vergleich hochladen", type="pdf", accept_multiple_files=True)
 if uploaded:
+    saved_count = 0
     for file in uploaded:
-        st.session_state.uploaded_docs[f"Upload/{file.name}"] = extract_uploaded_pdf(file)
-    st.sidebar.success(f"✅ {len(uploaded)} PDF(s) geladen. Sie können jetzt im Vergleich ausgewählt werden.")
+        try:
+            persist_uploaded_pdf(file, pdf_dir)
+            saved_count += 1
+        except (OSError, ValueError) as error:
+            st.sidebar.error(f"PDF konnte nicht dauerhaft gespeichert werden ({file.name}): {error}")
+    if saved_count:
+        extract_pdf_texts.clear()
+        st.sidebar.success(f"✅ {saved_count} PDF(s) dauerhaft im PDF-Ordner gespeichert.")
 
-docs = {**extract_pdf_texts(pdf_dir), **st.session_state.uploaded_docs}
+docs = extract_pdf_texts(pdf_dir, st.session_state.pdf_reload_token)
+if st.session_state.pop("pdf_reload_notice", False):
+    st.sidebar.success(f"✅ PDF-Ordner neu eingelesen: {len(docs)} PDF(s) gefunden.")
 
 tab1, tab2 = st.tabs(["📊 Vergleich", "🔍 Detailsuche"])
 
