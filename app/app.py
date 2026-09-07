@@ -96,7 +96,13 @@ def extract_pdf_texts(pdf_dir: str, reload_token: int = 0) -> dict:
 def persist_uploaded_pdf(uploaded_file, pdf_dir: str) -> None:
     """Speichert Uploads im konfigurierten PDF-Ordner statt nur in der Session."""
     pdf_path = Path(pdf_dir)
-    pdf_path.mkdir(parents=True, exist_ok=True)
+    try:
+        pdf_path.mkdir(parents=True, exist_ok=True)
+    except OSError as error:
+        raise OSError(
+            f"Der PDF-Speicherordner ist nicht beschreibbar: {pdf_path}. "
+            "Setzen Sie PDF_UPLOAD_DIR auf einen persistenten, beschreibbaren Ordner."
+        ) from error
     filename = Path(uploaded_file.name).name
     if not filename or Path(filename).suffix.lower() != ".pdf":
         raise ValueError("Nur PDF-Dateien können gespeichert werden.")
@@ -113,6 +119,11 @@ def persist_uploaded_pdf(uploaded_file, pdf_dir: str) -> None:
             tmp.write(content)
             temp_path = Path(tmp.name)
         os.replace(temp_path, target)
+    except OSError as error:
+        raise OSError(
+            f"Der PDF-Speicherordner ist nicht beschreibbar: {pdf_path}. "
+            "Setzen Sie PDF_UPLOAD_DIR auf einen persistenten, beschreibbaren Ordner."
+        ) from error
     finally:
         if temp_path is not None:
             temp_path.unlink(missing_ok=True)
@@ -268,6 +279,11 @@ st.title("⚖️ Vergleichs-KI")
 st.caption("Deterministischer Vergleich von Vergütungsvereinbarungen — KI optional nachgelagert")
 
 pdf_dir = st.sidebar.text_input("PDF-Ordner", value=os.getenv("PDF_DIR", DEFAULT_PDF_DIR))
+upload_dir = st.sidebar.text_input(
+    "PDF-Speicherordner für Uploads",
+    value=os.getenv("PDF_UPLOAD_DIR", pdf_dir),
+    help="Für dauerhafte Uploads muss dieser Ordner beschreibbar und persistent gemountet sein.",
+)
 if "pdf_reload_token" not in st.session_state:
     st.session_state.pdf_reload_token = 0
 if st.sidebar.button("🔄 PDF-Ordner neu einlesen"):
@@ -281,7 +297,7 @@ if uploaded:
     saved_count = 0
     for file in uploaded:
         try:
-            persist_uploaded_pdf(file, pdf_dir)
+            persist_uploaded_pdf(file, upload_dir)
             saved_count += 1
         except (OSError, ValueError) as error:
             st.sidebar.error(f"PDF konnte nicht dauerhaft gespeichert werden ({file.name}): {error}")
@@ -290,6 +306,9 @@ if uploaded:
         st.sidebar.success(f"✅ {saved_count} PDF(s) dauerhaft im PDF-Ordner gespeichert.")
 
 docs = extract_pdf_texts(pdf_dir, st.session_state.pdf_reload_token)
+if Path(upload_dir).expanduser().resolve() != Path(pdf_dir).expanduser().resolve():
+    upload_docs = extract_pdf_texts(upload_dir, st.session_state.pdf_reload_token)
+    docs.update({f"Upload/{name}": data for name, data in upload_docs.items()})
 if st.session_state.pop("pdf_reload_notice", False):
     st.sidebar.success(f"✅ PDF-Ordner neu eingelesen: {len(docs)} PDF(s) gefunden.")
 

@@ -45,13 +45,17 @@ Die App läuft auf **Port 8501** und ist deployed unter [vergleichs-ki.markb.de]
 
 ### Workflow
 
-1. **Dokumente laden:** PDFs rekursiv aus `/opt/data/Vergütungsvereinbarungen/` oder mehrere PDFs per Upload laden. Uploads werden im konfigurierten PDF-Ordner gespeichert und bleiben nach einem Neustart erhalten, wenn dieser Ordner persistent gemountet ist.
+1. **Dokumente laden:** PDFs rekursiv aus `/opt/data/Vergütungsvereinbarungen/` oder mehrere PDFs per Upload laden. Uploads werden im konfigurierten Upload-Speicherordner gespeichert und bleiben nach einem Neustart erhalten, wenn dieser Ordner persistent gemountet ist.
 2. **Vergleichen:** Dokument A und B auswählen → „Deterministisch vergleichen"
 3. **Ergebnisse analysieren:** Levenshtein-Distanz, geänderte Textblöcke, neue/entfernte Beträge und Paragraphen prüfen
 4. **Optional KI nutzen:** Nur bei gesetztem `OPENAI_API_KEY` eine Zusammenfassung der deterministischen Unterschiede erzeugen
 5. **Detailsuche:** Vorschläge nutzen und gezielt nach „Basisfallwert", „Punktwert", „§37" etc. suchen
 
 Mit **„PDF-Ordner neu einlesen“** wird der Dokumenten-Cache geleert und der Ordner vollständig neu durchsucht. Dabei werden auch `.PDF`-Dateien berücksichtigt.
+
+In Deployments, in denen `/opt/data/Vergütungsvereinbarungen/` nur lesbar ist, muss für Uploads
+`PDF_UPLOAD_DIR` auf einen beschreibbaren persistenten Ordner gesetzt werden. Alternativ kann der
+Ordner in der Sidebar als **„PDF-Speicherordner für Uploads“** eingetragen werden.
 
 ---
 
