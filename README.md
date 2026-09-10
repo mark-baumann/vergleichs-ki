@@ -18,6 +18,7 @@
 - **🔤 Begriffs-Diff:** Neue und entfernte Fachbegriffe im Vergleich
 - **🔍 Detailsuche:** Gezielte Volltextsuche mit Zeilennummern
 - **📤 Mehrfach-PDF-Upload:** Zwei oder mehr eigene PDFs hochladen und direkt vergleichen
+- **💾 Dauerhafte Uploads:** Hochgeladene PDFs optional dauerhaft im PDF-Ordner ablegen, um sie auch in künftigen Sitzungen für den Vergleich auszuwählen (inkl. Verwaltung/Löschen in der Sidebar)
 - **🧮 Deterministischer Text-Diff:** String-Vergleich von Textblöcken inklusive Levenshtein-Distanz vor jeder KI-Auswertung
 - **🤖 Optionale KI-Zusammenfassung:** KI fasst nur die deterministisch gefundenen Unterschiede zusammen, wenn `OPENAI_API_KEY` gesetzt ist
 - **💡 Suchvorschläge:** Detailsuche zeigt häufige Fachbegriffe und ähnliche Vorschläge
