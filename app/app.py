@@ -18,6 +18,7 @@ st.set_page_config(page_title="Vergleichs-KI", page_icon="⚖️", layout="wide"
 
 DEFAULT_PDF_DIR = "/opt"
 MAX_DIFF_ITEMS = 80
+PERSISTENT_UPLOAD_SUBDIR = "Hochgeladene Dokumente"
 
 
 # ── Text-Normalisierung & deterministische Metriken ──────────────────────────
@@ -88,6 +89,25 @@ def extract_pdf_texts(pdf_dir: str) -> dict:
         except Exception as e:
             docs[pdf_file.name] = {"text": f"FEHLER: {e}", "pages": 0, "source": str(pdf_file)}
     return docs
+
+
+def persistent_upload_dir(pdf_dir: str) -> Path:
+    """Unterordner im persistenten PDF-Volume für dauerhaft gespeicherte Uploads."""
+    target_dir = Path(pdf_dir) / PERSISTENT_UPLOAD_SUBDIR
+    target_dir.mkdir(parents=True, exist_ok=True)
+    return target_dir
+
+
+def unique_persist_path(pdf_dir: str, filename: str) -> Path:
+    """Verhindert das Überschreiben bestehender dauerhafter Uploads bei Namensgleichheit."""
+    target_dir = persistent_upload_dir(pdf_dir)
+    stem, suffix = Path(filename).stem, Path(filename).suffix
+    candidate = target_dir / filename
+    counter = 1
+    while candidate.exists():
+        candidate = target_dir / f"{stem} ({counter}){suffix}"
+        counter += 1
+    return candidate
 
 
 def extract_uploaded_pdf(uploaded_file) -> dict:
@@ -247,10 +267,40 @@ if "uploaded_docs" not in st.session_state:
     st.session_state.uploaded_docs = {}
 
 uploaded = st.sidebar.file_uploader("Eine oder mehrere PDFs zum Vergleich hochladen", type="pdf", accept_multiple_files=True)
+persist_uploads = st.sidebar.checkbox(
+    "💾 Dauerhaft speichern",
+    value=False,
+    help=f"Legt hochgeladene PDFs zusätzlich unter „{PERSISTENT_UPLOAD_SUBDIR}“ im PDF-Ordner ab, "
+    "damit sie auch in künftigen Sitzungen zum Vergleich ausgewählt werden können.",
+)
 if uploaded:
+    persisted, session_only = 0, 0
     for file in uploaded:
-        st.session_state.uploaded_docs[f"Upload/{file.name}"] = extract_uploaded_pdf(file)
-    st.sidebar.success(f"✅ {len(uploaded)} PDF(s) geladen. Sie können jetzt im Vergleich ausgewählt werden.")
+        if persist_uploads:
+            unique_persist_path(pdf_dir, file.name).write_bytes(file.getvalue())
+            persisted += 1
+        else:
+            st.session_state.uploaded_docs[f"Upload/{file.name}"] = extract_uploaded_pdf(file)
+            session_only += 1
+    if persisted:
+        extract_pdf_texts.clear()
+    parts = []
+    if persisted:
+        parts.append(f"{persisted} PDF(s) dauerhaft gespeichert")
+    if session_only:
+        parts.append(f"{session_only} PDF(s) nur für diese Sitzung geladen")
+    st.sidebar.success("✅ " + " und ".join(parts) + ". Sie können jetzt im Vergleich ausgewählt werden.")
+
+stored_uploads = sorted(persistent_upload_dir(pdf_dir).glob("*.pdf")) if Path(pdf_dir).exists() else []
+if stored_uploads:
+    with st.sidebar.expander(f"🗂️ Dauerhaft gespeicherte Uploads verwalten ({len(stored_uploads)})"):
+        for stored_file in stored_uploads:
+            col1, col2 = st.columns([4, 1])
+            col1.write(stored_file.name)
+            if col2.button("🗑️", key=f"delete_upload_{stored_file.name}"):
+                stored_file.unlink(missing_ok=True)
+                extract_pdf_texts.clear()
+                st.rerun()
 
 docs = {**extract_pdf_texts(pdf_dir), **st.session_state.uploaded_docs}
 
