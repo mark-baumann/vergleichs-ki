@@ -16,8 +16,9 @@ import streamlit as st
 
 st.set_page_config(page_title="Vergleichs-KI", page_icon="⚖️", layout="wide")
 
-DEFAULT_PDF_DIR = "/opt/data/Vergütungsvereinbarungen"
+DEFAULT_PDF_DIR = "/opt"
 MAX_DIFF_ITEMS = 80
+PERSISTENT_UPLOAD_SUBDIR = "Hochgeladene Dokumente"
 
 
 # ── Text-Normalisierung & deterministische Metriken ──────────────────────────
@@ -293,6 +294,12 @@ if st.sidebar.button("🔄 PDF-Ordner neu einlesen"):
     st.rerun()
 
 uploaded = st.sidebar.file_uploader("Eine oder mehrere PDFs zum Vergleich hochladen", type="pdf", accept_multiple_files=True)
+persist_uploads = st.sidebar.checkbox(
+    "💾 Dauerhaft speichern",
+    value=False,
+    help=f"Legt hochgeladene PDFs zusätzlich unter „{PERSISTENT_UPLOAD_SUBDIR}“ im PDF-Ordner ab, "
+    "damit sie auch in künftigen Sitzungen zum Vergleich ausgewählt werden können.",
+)
 if uploaded:
     saved_count = 0
     for file in uploaded:
