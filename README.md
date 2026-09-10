@@ -45,7 +45,7 @@ Die App läuft auf **Port 8501** und ist deployed unter [vergleichs-ki.markb.de]
 
 ### Workflow
 
-1. **Dokumente laden:** PDFs rekursiv aus `/opt/data/Vergütungsvereinbarungen/` oder mehrere PDFs per Upload laden
+1. **Dokumente laden:** PDFs rekursiv aus `/opt/` (persistentes Volume, per `PDF_DIR` überschreibbar) oder mehrere PDFs per Upload laden
 2. **Vergleichen:** Dokument A und B auswählen → „Deterministisch vergleichen"
 3. **Ergebnisse analysieren:** Levenshtein-Distanz, geänderte Textblöcke, neue/entfernte Beträge und Paragraphen prüfen
 4. **Optional KI nutzen:** Nur bei gesetztem `OPENAI_API_KEY` eine Zusammenfassung der deterministischen Unterschiede erzeugen

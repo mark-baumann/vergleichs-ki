@@ -16,7 +16,7 @@ import streamlit as st
 
 st.set_page_config(page_title="Vergleichs-KI", page_icon="⚖️", layout="wide")
 
-DEFAULT_PDF_DIR = "/opt/data/Vergütungsvereinbarungen"
+DEFAULT_PDF_DIR = "/opt"
 MAX_DIFF_ITEMS = 80
 
 
@@ -239,8 +239,8 @@ def summarize_with_ai(diff_payload: dict) -> str:
 st.title("⚖️ Vergleichs-KI")
 st.caption("Deterministischer Vergleich von Vergütungsvereinbarungen — KI optional nachgelagert")
 
-pdf_dir = st.sidebar.text_input("PDF-Ordner", value=os.getenv("PDF_DIR", DEFAULT_PDF_DIR))
-if st.sidebar.button("🔄 PDF-Ordner neu einlesen"):
+pdf_dir = os.getenv("PDF_DIR", DEFAULT_PDF_DIR)
+if st.sidebar.button("🔄 Dokumente neu einlesen"):
     extract_pdf_texts.clear()
 
 if "uploaded_docs" not in st.session_state:
