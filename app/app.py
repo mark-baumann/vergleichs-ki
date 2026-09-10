@@ -66,7 +66,7 @@ def similarity_ratio(a: str, b: str) -> float:
 
 # ── PDF-Text extrahieren ─────────────────────────────────────────────────────
 @st.cache_data(show_spinner=False)
-def extract_pdf_texts(pdf_dir: str) -> dict:
+def extract_pdf_texts(pdf_dir: str, reload_token: int = 0) -> dict:
     import fitz
 
     docs = {}
@@ -75,7 +75,10 @@ def extract_pdf_texts(pdf_dir: str) -> dict:
         return docs
 
     # Rekursiv suchen, damit gemountete Unterordner ebenfalls angezeigt werden.
-    for pdf_file in sorted(pdf_path.rglob("*.pdf"), key=lambda p: str(p).lower()):
+    for pdf_file in sorted(
+        (path for path in pdf_path.rglob("*") if path.is_file() and path.suffix.lower() == ".pdf"),
+        key=lambda p: str(p).lower(),
+    ):
         try:
             doc = fitz.open(pdf_file)
             text = "".join(page.get_text() for page in doc)
@@ -91,23 +94,40 @@ def extract_pdf_texts(pdf_dir: str) -> dict:
     return docs
 
 
-def persistent_upload_dir(pdf_dir: str) -> Path:
-    """Unterordner im persistenten PDF-Volume für dauerhaft gespeicherte Uploads."""
-    target_dir = Path(pdf_dir) / PERSISTENT_UPLOAD_SUBDIR
-    target_dir.mkdir(parents=True, exist_ok=True)
-    return target_dir
+def persist_uploaded_pdf(uploaded_file, pdf_dir: str) -> None:
+    """Speichert Uploads im konfigurierten PDF-Ordner statt nur in der Session."""
+    pdf_path = Path(pdf_dir)
+    try:
+        pdf_path.mkdir(parents=True, exist_ok=True)
+    except OSError as error:
+        raise OSError(
+            f"Der PDF-Speicherordner ist nicht beschreibbar: {pdf_path}. "
+            "Setzen Sie PDF_UPLOAD_DIR auf einen persistenten, beschreibbaren Ordner."
+        ) from error
+    filename = Path(uploaded_file.name).name
+    if not filename or Path(filename).suffix.lower() != ".pdf":
+        raise ValueError("Nur PDF-Dateien können gespeichert werden.")
 
+    content = uploaded_file.getvalue()
+    target = pdf_path / filename
+    if target.exists() and target.read_bytes() == content:
+        return
 
-def unique_persist_path(pdf_dir: str, filename: str) -> Path:
-    """Verhindert das Überschreiben bestehender dauerhafter Uploads bei Namensgleichheit."""
-    target_dir = persistent_upload_dir(pdf_dir)
-    stem, suffix = Path(filename).stem, Path(filename).suffix
-    candidate = target_dir / filename
-    counter = 1
-    while candidate.exists():
-        candidate = target_dir / f"{stem} ({counter}){suffix}"
-        counter += 1
-    return candidate
+    # Atomisches Ersetzen verhindert unvollständige PDFs bei einem Abbruch.
+    temp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(dir=pdf_path, suffix=".pdf", delete=False) as tmp:
+            tmp.write(content)
+            temp_path = Path(tmp.name)
+        os.replace(temp_path, target)
+    except OSError as error:
+        raise OSError(
+            f"Der PDF-Speicherordner ist nicht beschreibbar: {pdf_path}. "
+            "Setzen Sie PDF_UPLOAD_DIR auf einen persistenten, beschreibbaren Ordner."
+        ) from error
+    finally:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
 
 
 def extract_uploaded_pdf(uploaded_file) -> dict:
@@ -259,12 +279,19 @@ def summarize_with_ai(diff_payload: dict) -> str:
 st.title("⚖️ Vergleichs-KI")
 st.caption("Deterministischer Vergleich von Vergütungsvereinbarungen — KI optional nachgelagert")
 
-pdf_dir = os.getenv("PDF_DIR", DEFAULT_PDF_DIR)
-if st.sidebar.button("🔄 Dokumente neu einlesen"):
+pdf_dir = st.sidebar.text_input("PDF-Ordner", value=os.getenv("PDF_DIR", DEFAULT_PDF_DIR))
+upload_dir = st.sidebar.text_input(
+    "PDF-Speicherordner für Uploads",
+    value=os.getenv("PDF_UPLOAD_DIR", pdf_dir),
+    help="Für dauerhafte Uploads muss dieser Ordner beschreibbar und persistent gemountet sein.",
+)
+if "pdf_reload_token" not in st.session_state:
+    st.session_state.pdf_reload_token = 0
+if st.sidebar.button("🔄 PDF-Ordner neu einlesen"):
     extract_pdf_texts.clear()
-
-if "uploaded_docs" not in st.session_state:
-    st.session_state.uploaded_docs = {}
+    st.session_state.pdf_reload_token += 1
+    st.session_state.pdf_reload_notice = True
+    st.rerun()
 
 uploaded = st.sidebar.file_uploader("Eine oder mehrere PDFs zum Vergleich hochladen", type="pdf", accept_multiple_files=True)
 persist_uploads = st.sidebar.checkbox(
@@ -274,35 +301,23 @@ persist_uploads = st.sidebar.checkbox(
     "damit sie auch in künftigen Sitzungen zum Vergleich ausgewählt werden können.",
 )
 if uploaded:
-    persisted, session_only = 0, 0
+    saved_count = 0
     for file in uploaded:
-        if persist_uploads:
-            unique_persist_path(pdf_dir, file.name).write_bytes(file.getvalue())
-            persisted += 1
-        else:
-            st.session_state.uploaded_docs[f"Upload/{file.name}"] = extract_uploaded_pdf(file)
-            session_only += 1
-    if persisted:
+        try:
+            persist_uploaded_pdf(file, upload_dir)
+            saved_count += 1
+        except (OSError, ValueError) as error:
+            st.sidebar.error(f"PDF konnte nicht dauerhaft gespeichert werden ({file.name}): {error}")
+    if saved_count:
         extract_pdf_texts.clear()
-    parts = []
-    if persisted:
-        parts.append(f"{persisted} PDF(s) dauerhaft gespeichert")
-    if session_only:
-        parts.append(f"{session_only} PDF(s) nur für diese Sitzung geladen")
-    st.sidebar.success("✅ " + " und ".join(parts) + ". Sie können jetzt im Vergleich ausgewählt werden.")
+        st.sidebar.success(f"✅ {saved_count} PDF(s) dauerhaft im PDF-Ordner gespeichert.")
 
-stored_uploads = sorted(persistent_upload_dir(pdf_dir).glob("*.pdf")) if Path(pdf_dir).exists() else []
-if stored_uploads:
-    with st.sidebar.expander(f"🗂️ Dauerhaft gespeicherte Uploads verwalten ({len(stored_uploads)})"):
-        for stored_file in stored_uploads:
-            col1, col2 = st.columns([4, 1])
-            col1.write(stored_file.name)
-            if col2.button("🗑️", key=f"delete_upload_{stored_file.name}"):
-                stored_file.unlink(missing_ok=True)
-                extract_pdf_texts.clear()
-                st.rerun()
-
-docs = {**extract_pdf_texts(pdf_dir), **st.session_state.uploaded_docs}
+docs = extract_pdf_texts(pdf_dir, st.session_state.pdf_reload_token)
+if Path(upload_dir).expanduser().resolve() != Path(pdf_dir).expanduser().resolve():
+    upload_docs = extract_pdf_texts(upload_dir, st.session_state.pdf_reload_token)
+    docs.update({f"Upload/{name}": data for name, data in upload_docs.items()})
+if st.session_state.pop("pdf_reload_notice", False):
+    st.sidebar.success(f"✅ PDF-Ordner neu eingelesen: {len(docs)} PDF(s) gefunden.")
 
 tab1, tab2 = st.tabs(["📊 Vergleich", "🔍 Detailsuche"])
 
