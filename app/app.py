@@ -221,10 +221,24 @@ def render_diff_item(item: dict, index: int):
 
 
 def summarize_with_ai(diff_payload: dict) -> str:
-    """Fasst deterministisch gefundene Unterschiede optional mit OpenAI zusammen."""
+    """Fasst deterministisch gefundene Unterschiede optional mit einem LLM zusammen.
+
+    Bevorzugt den zentralen OLLAMA-Zugang (OLLAMA_API_KEY/OLLAMA_BASE_URL/
+    OLLAMA_MODEL aus der Deployment-.env); faellt auf OPENAI_API_KEY/OPENAI_MODEL
+    zurueck, wenn kein Ollama-Key gesetzt ist.
+    """
     from openai import OpenAI
 
-    client = OpenAI()
+    ollama_key = os.getenv("OLLAMA_API_KEY")
+    if ollama_key:
+        client = OpenAI(
+            api_key=ollama_key,
+            base_url=os.getenv("OLLAMA_BASE_URL", "https://ollama.com/v1"),
+        )
+        model = os.getenv("OLLAMA_MODEL", "glm-5.3-flash")
+    else:
+        client = OpenAI()
+        model = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
     compact = {
         "dokument_a": diff_payload["doc_a"],
         "dokument_b": diff_payload["doc_b"],
@@ -244,7 +258,7 @@ def summarize_with_ai(diff_payload: dict) -> str:
         "entfernte_textbloecke": diff_payload["result"]["removed"][:8],
     }
     response = client.responses.create(
-        model=os.getenv("OPENAI_MODEL", "gpt-4.1-mini"),
+        model=model,
         input=(
             "Du bist eine Vergleichs-KI für deutsche Vergütungsvereinbarungen. "
             "Fasse ausschließlich die folgenden deterministisch berechneten Unterschiede zusammen. "
@@ -360,12 +374,12 @@ with tab1:
 
             with st.expander("🤖 KI-Zusammenfassung optional nach deterministischem Vergleich"):
                 st.write("Die KI ist bewusst nachgelagert: Grundlage sind ausschließlich die oben berechneten Unterschiede.")
-                if os.getenv("OPENAI_API_KEY"):
+                if os.getenv("OLLAMA_API_KEY") or os.getenv("OPENAI_API_KEY"):
                     if st.button("🤖 KI-Zusammenfassung erzeugen"):
                         with st.spinner("KI fasst deterministische Unterschiede zusammen …"):
                             st.markdown(summarize_with_ai(st.session_state.last_diff))
                 else:
-                    st.warning("OPENAI_API_KEY ist nicht gesetzt. Der deterministische Vergleich funktioniert weiterhin ohne KI.")
+                    st.warning("Weder OLLAMA_API_KEY noch OPENAI_API_KEY gesetzt. Der deterministische Vergleich funktioniert weiterhin ohne KI.")
     else:
         st.warning(f"Mindestens 2 PDFs nötig. Aktueller Ordner: {pdf_dir}")
 
