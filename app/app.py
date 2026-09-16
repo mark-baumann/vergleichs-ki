@@ -9,7 +9,6 @@ import difflib
 import json
 import os
 import re
-import tempfile
 from pathlib import Path
 
 import streamlit as st
@@ -108,22 +107,6 @@ def unique_persist_path(pdf_dir: str, filename: str) -> Path:
         candidate = target_dir / f"{stem} ({counter}){suffix}"
         counter += 1
     return candidate
-
-
-def extract_uploaded_pdf(uploaded_file) -> dict:
-    import fitz
-
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-        tmp.write(uploaded_file.getvalue())
-        tmp_path = tmp.name
-    try:
-        doc = fitz.open(tmp_path)
-        text = "".join(page.get_text() for page in doc)
-        pages = len(doc)
-        doc.close()
-        return {"text": normalize_text(text), "pages": pages, "source": "Upload"}
-    finally:
-        Path(tmp_path).unlink(missing_ok=True)
 
 
 # ── Differenz-Analyse ───────────────────────────────────────────────────────
@@ -281,29 +264,14 @@ if "uploaded_docs" not in st.session_state:
     st.session_state.uploaded_docs = {}
 
 uploaded = st.sidebar.file_uploader("Eine oder mehrere PDFs zum Vergleich hochladen", type="pdf", accept_multiple_files=True)
-persist_uploads = st.sidebar.checkbox(
-    "💾 Dauerhaft speichern",
-    value=False,
-    help=f"Legt hochgeladene PDFs zusätzlich unter „{PERSISTENT_UPLOAD_SUBDIR}“ im PDF-Ordner ab, "
-    "damit sie auch in künftigen Sitzungen zum Vergleich ausgewählt werden können.",
-)
 if uploaded:
-    persisted, session_only = 0, 0
+    persisted = 0
     for file in uploaded:
-        if persist_uploads:
-            unique_persist_path(pdf_dir, file.name).write_bytes(file.getvalue())
-            persisted += 1
-        else:
-            st.session_state.uploaded_docs[f"Upload/{file.name}"] = extract_uploaded_pdf(file)
-            session_only += 1
+        unique_persist_path(pdf_dir, file.name).write_bytes(file.getvalue())
+        persisted += 1
     if persisted:
         extract_pdf_texts.clear()
-    parts = []
-    if persisted:
-        parts.append(f"{persisted} PDF(s) dauerhaft gespeichert")
-    if session_only:
-        parts.append(f"{session_only} PDF(s) nur für diese Sitzung geladen")
-    st.sidebar.success("✅ " + " und ".join(parts) + ". Sie können jetzt im Vergleich ausgewählt werden.")
+    st.sidebar.success(f"✅ {persisted} PDF(s) dauerhaft unter „{PERSISTENT_UPLOAD_SUBDIR}“ im PDF-Ordner gespeichert. Sie können jetzt im Vergleich ausgewählt werden.")
 
 stored_uploads = sorted(persistent_upload_dir(pdf_dir).glob("*.pdf")) if Path(pdf_dir).exists() else []
 if stored_uploads:
