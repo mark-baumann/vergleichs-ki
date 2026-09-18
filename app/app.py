@@ -9,7 +9,6 @@ import difflib
 import json
 import os
 import re
-import tempfile
 from pathlib import Path
 
 import streamlit as st
@@ -128,22 +127,6 @@ def persist_uploaded_pdf(uploaded_file, pdf_dir: str) -> None:
     finally:
         if temp_path is not None:
             temp_path.unlink(missing_ok=True)
-
-
-def extract_uploaded_pdf(uploaded_file) -> dict:
-    import fitz
-
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-        tmp.write(uploaded_file.getvalue())
-        tmp_path = tmp.name
-    try:
-        doc = fitz.open(tmp_path)
-        text = "".join(page.get_text() for page in doc)
-        pages = len(doc)
-        doc.close()
-        return {"text": normalize_text(text), "pages": pages, "source": "Upload"}
-    finally:
-        Path(tmp_path).unlink(missing_ok=True)
 
 
 # ── Differenz-Analyse ───────────────────────────────────────────────────────
@@ -308,12 +291,6 @@ if st.sidebar.button("🔄 PDF-Ordner neu einlesen"):
     st.rerun()
 
 uploaded = st.sidebar.file_uploader("Eine oder mehrere PDFs zum Vergleich hochladen", type="pdf", accept_multiple_files=True)
-persist_uploads = st.sidebar.checkbox(
-    "💾 Dauerhaft speichern",
-    value=False,
-    help=f"Legt hochgeladene PDFs zusätzlich unter „{PERSISTENT_UPLOAD_SUBDIR}“ im PDF-Ordner ab, "
-    "damit sie auch in künftigen Sitzungen zum Vergleich ausgewählt werden können.",
-)
 if uploaded:
     saved_count = 0
     for file in uploaded:
