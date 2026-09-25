@@ -15,7 +15,7 @@ import streamlit as st
 
 st.set_page_config(page_title="Vergleichs-KI", page_icon="⚖️", layout="wide")
 
-DEFAULT_PDF_DIR = "/opt"
+DEFAULT_PDF_DIR = "/opt/data/Vergütungsvereinbarungen"
 MAX_DIFF_ITEMS = 80
 PERSISTENT_UPLOAD_SUBDIR = "Hochgeladene Dokumente"
 
